@@ -178,9 +178,10 @@ termCount <- function(doc,shortTermDeleted){
   res <- data.frame(table(unlist(lapply(dataText, cutfunc))))
   res[,1] <- as.character(res[,1])
   if(shortTermDeleted){
-    res <- res[which(nchar(res[,1])>1),]
+    res <- res[nchar(res[,1])>1,]
   }
   res <- res[order(-res$Freq),]
+  res
 }
 
 
