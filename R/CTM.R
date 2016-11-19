@@ -4,7 +4,7 @@
 #' @param doc The Chinese text document.
 #' @param weighting Available weighting function with matrix are tf, tfidf.
 #' @param shortTermDeleted Deltected short word when nchar <2.
-#' @author Jim Liu
+#' @author Jim Liu, GuQuQ
 #' @details
 #' This function run a Chinese word segmentation by jiebeR and build
 #' term-document matrix, and there is two weighting function with matrix,
@@ -22,50 +22,50 @@
 #' text <- t(data.frame(a,b,c,d))
 #' tdm <- CTDM(doc = text, weighting = "tfidf", shortTermDeleted = FALSE)
 
-
-
 CTDM <- function(doc,weighting,shortTermDeleted){
   ###jiebaR
-  cutter <- worker()
-  cutfunc <- function(s){
-    return(cutter <= s)
-  }
+  cutter <- jiebaR::worker()
   dataText <- doc
-  segMatrix <- matrix(nrow = 1,ncol = 2)
-  colnames(segMatrix) <- c("id","term")
-  for(i in 1:length(dataText)){
-    uniSeg <- data.frame(i,as.matrix(cutter[dataText[i]]))
-    colnames(uniSeg) <- c("id","term")
-    segMatrix <- rbind(segMatrix,uniSeg)
-  }
-  segMatrix <- segMatrix[-1,]
-  ###
-  term <- unique(segMatrix[,2])
+  
+  segs <- sapply(dataText,USE.NAMES = F,FUN = function(x){
+    temp=(cutter <= x)
+    temp[nchar(temp)>0]
+  })
+  
+  allTerms=unlist(segs)
+  lens=sapply(segs,length)                               #count of terms in different id
+  allIds=rep(1:length(segs),lens)
+  segMatrix <- data.frame(id=allIds,term=allTerms,stringsAsFactors = F)
+  ###plyr
+  it_freq <- plyr::count(segMatrix,vars = c("id","term"))#count of different terms in each id, "it" means id_terms
+  
+  term <- unique(segMatrix$term)
   if(shortTermDeleted){
-    term <- term[-which(nchar(term)<2)]
+    term <- term[nchar(term)>=2]
   }
-  dtm <- matrix(nrow = length(dataText),ncol = length(term),0)
+
+  dtm <- matrix(nrow = length(dataText),ncol = length(term),0)#likely to be sparse matrix, also can use Matrix::Matrix
+  
   if(weighting=="tf"){
     for(i in 1:length(term)){
-      find1 <- table(segMatrix[which(segMatrix[,2]==term[i]),1])
-      find2 <- table(segMatrix[which(segMatrix[,1] %in% as.numeric(names(find1))),1])
-      dtm[as.numeric(names(find1)),i] <- find1/find2
-      cat("\r","Calculating for",i,"of",length(term),"term")
+      find1 <- it_freq[it_freq$term==term[i],c("id","freq")]
+      find2 <- lens[find1$id]
+      dtm[find1$id,i] <- find1$freq/find2
     }
   }
 
   if(weighting=="tfidf"){
+    n_row=nrow(dtm)
     for(i in 1:length(term)){
-      find1 <- table(segMatrix[which(segMatrix[,2]==term[i]),1])
-      find2 <- table(segMatrix[which(segMatrix[,1] %in% as.numeric(names(find1))),1])
-      dtm[as.numeric(names(find1)),i] <- find1/find2
-      dtm[,i] <- dtm[,i]*log(nrow(dtm)/(1+length(which(dtm[,i]>0))))
-      cat("\r","Calculating for",i,"of",length(term),"term")
+      find1 <- it_freq[it_freq$term==term[i],c("id","freq")]
+      find2 <- lens[find1$id]
+      dtm[find1$id,i] <- find1$freq/find2
+      dtm[,i] <- dtm[,i]*log(n_row/(1+nrow(find1)))  
     }
   }
   colnames(dtm) <- term
-  rownames(dtm) <- 1:length(dataText)
-  dtm <- t(dtm)
+  tdm=t(dtm)
+  tdm
 }
 
 
@@ -77,7 +77,7 @@ CTDM <- function(doc,weighting,shortTermDeleted){
 #' @param doc The Chinese text document.
 #' @param weighting Available weighting function with matrix are tf, tfidf.
 #' @param shortTermDeleted Deltected short word when nchar <2.
-#' @author Jim Liu
+#' @author Jim Liu, GuQuQ
 #' @details
 #' This function run a Chinese word segmentation by jiebeR and build document-term matrix
 #' and there is two weighting function with matrix,
@@ -95,51 +95,52 @@ CTDM <- function(doc,weighting,shortTermDeleted){
 #' text <- t(data.frame(a,b,c,d))
 #' dtm <- CDTM(doc = text, weighting = "tfidf", shortTermDeleted = FALSE)
 
-
-
 CDTM <- function(doc,weighting,shortTermDeleted){
   ###jiebaR
-  cutter <- worker()
-  cutfunc <- function(s){
-    return(cutter <= s)
-  }
+  cutter <- jiebaR::worker()
   dataText <- doc
-  segMatrix <- matrix(nrow = 1,ncol = 2)
-  colnames(segMatrix) <- c("id","term")
-  for(i in 1:length(dataText)){
-    uniSeg <- data.frame(i,as.matrix(cutter[dataText[i]]))
-    colnames(uniSeg) <- c("id","term")
-    segMatrix <- rbind(segMatrix,uniSeg)
-  }
-  segMatrix <- segMatrix[-1,]
-  ###
-  term <- unique(segMatrix[,2])
+  
+  segs <- sapply(dataText,USE.NAMES = F,FUN = function(x){
+    temp=(cutter <= x)
+    temp[nchar(temp)>0]
+  })
+  
+  allTerms=unlist(segs)
+  lens=sapply(segs,length)                               #count of terms in different id
+  allIds=rep(1:length(segs),lens)
+  segMatrix <- data.frame(id=allIds,term=allTerms,stringsAsFactors = F)
+  ###plyr
+  it_freq <- plyr::count(segMatrix,vars = c("id","term"))#count of different terms in each id, "it" means id_terms
+  
+  term <- unique(segMatrix$term)
   if(shortTermDeleted){
-    term <- term[-which(nchar(term)<2)]
+    term <- term[nchar(term)>=2]
   }
-  dtm <- matrix(nrow = length(dataText),ncol = length(term),0)
+
+  dtm <- matrix(nrow = length(dataText),ncol = length(term),0)#likely to be sparse matrix, can use Matrix::Matrix
+  
   if(weighting=="tf"){
     for(i in 1:length(term)){
-      find1 <- table(segMatrix[which(segMatrix[,2]==term[i]),1])
-      find2 <- table(segMatrix[which(segMatrix[,1] %in% as.numeric(names(find1))),1])
-      dtm[as.numeric(names(find1)),i] <- find1/find2
-      cat("\r","Calculating for",i,"of",length(term),"term")
+      find1 <- it_freq[it_freq$term==term[i],c("id","freq")]
+      find2 <- lens[find1$id]
+      dtm[find1$id,i] <- find1$freq/find2
     }
   }
 
   if(weighting=="tfidf"){
+    n_row=nrow(dtm)
     for(i in 1:length(term)){
-      find1 <- table(segMatrix[which(segMatrix[,2]==term[i]),1])
-      find2 <- table(segMatrix[which(segMatrix[,1] %in% as.numeric(names(find1))),1])
-      dtm[as.numeric(names(find1)),i] <- find1/find2
-      dtm[,i] <- dtm[,i]*log(nrow(dtm)/(1+length(which(dtm[,i]>0))))
-      cat("\r","Calculating for",i,"of",length(term),"term")
+      find1 <- it_freq[it_freq$term==term[i],c("id","freq")]
+      find2 <- lens[find1$id]
+      dtm[find1$id,i] <- find1$freq/find2
+      dtm[,i] <- dtm[,i]*log(n_row/(1+nrow(find1)))  
     }
   }
   colnames(dtm) <- term
-  rownames(dtm) <- 1:length(dataText)
-  dtm <- dtm
+  dtm
 }
+
+
 
 
 
