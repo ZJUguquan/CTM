@@ -2,7 +2,7 @@
 CTM — A Text Mining Toolkit for Chinese Document  
 
 ### Notes
-This package CTM is developed by Jim Liu.Thx him and it is very useful in text mining for Chinese under the circumstances 
+This package CTM is created by Jim Liu.Thx him and it is very useful in text mining for Chinese under the circumstances 
 that the function "DocumentTermMatrix" in the "tm" pacakge always goes wrong for Chinese characters. 
 However, when I use this package, I have fond that the "for loop" running very slow to generate a "segMatrix", 
 and when computing "tfidf" there exists some repetition calculation which influences the computational efficiency. 
